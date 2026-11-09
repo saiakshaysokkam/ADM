@@ -1,0 +1,181 @@
+{
+  "stage": "conceptual_model",
+  "version": 2,
+  "artifact": {
+    "summary": "All five source tables are accounted for as mapped concepts. Every concept has a candidate business identifier drawn from declared PKs in the source (Customer: customer_id; Product: product_id; Order: order_id; Order Line: order_line_id; Payment: payment_id) — evidence cited in each concept. Modeling decisions: Order Line is kept as its own detail/associative concept because it has a declared PK and carries its own attributes; no M:N left unresolved. No supertypes/subtypes proposed (no evidence of distinct subtype rules). Party model is disabled per project choice; party_model_category left null for all concepts. Open functional-dependency and review questions (business confirmation needed): 1) Does Product determine Unit Price (i.e., is products.unit_price authoritative), or can unit_price vary by Order/Order Line due to promotions/price overrides? Evidence: unit_price exists both on products and on order_lines. 2) Is line_total a computed value (quantity * unit_price +/- discounts/taxes) or is it authoritative and subject to reconciliation? 3) Are discount_pct and tax_pct constant defaults or meaningful per line (profiling shows single distinct values in sample; confirm business rule). 4) Do category and brand require promotion to reference concepts (they currently appear only as attributes on Product and are therefore kept as attributes unless cross-source reuse is confirmed). Next steps: confirm the FD questions above and whether reference lists (order status, payment status, shipping method, currency, sales channel, warehouse code) should be promoted to distinct reference concepts—currently modeled as attributes because evidence of reuse/governance beyond their source columns is insufficient. Review checklist notes: every required 3NF rule applied; identifier evidence present for each concept; every source_table appears once in source_accounting. Items requiring user decision are listed above; business confirmation will resolve FD hypotheses and any reference-to-concept promotions.",
+    "concepts": [
+      {
+        "name": "Customer",
+        "domain": "Retail",
+        "evidence": {
+          "detail": "Declared PK customer_id on source table customers; table marked Master with descriptive glossary; referenced by orders.customer_id and payments.customer_id in relationship findings (confidence 0.77).",
+          "technique": "structural_grouping"
+        },
+        "definition": "A persistent record describing an individual who purchases from or interacts with the business; holds identity and contact details used across orders and payments.",
+        "source_tables": [
+          "customers"
+        ],
+        "subconcept_of": null,
+        "key_attributes": [
+          "Customer Identifier"
+        ],
+        "party_model_category": null,
+        "is_named_specialization": false
+      },
+      {
+        "name": "Product",
+        "domain": "Retail",
+        "evidence": {
+          "detail": "Declared PK product_id on source table products; table marked Master with product attributes including unit_price, cost_price, category and brand.",
+          "technique": "structural_grouping"
+        },
+        "definition": "A catalog entry representing a sellable item, with catalogue attributes, price and inventory information.",
+        "source_tables": [
+          "products"
+        ],
+        "subconcept_of": null,
+        "key_attributes": [
+          "Product Identifier"
+        ],
+        "party_model_category": null,
+        "is_named_specialization": false
+      },
+      {
+        "name": "Order",
+        "domain": "Retail",
+        "evidence": {
+          "detail": "Declared PK order_id on source table orders; orders.customer_id references customers.customer_id (relationship confidence 0.77); orders participates in relationships to payments (payments.order_id) and to order_lines (order_lines.order_id).",
+          "technique": "structural_grouping"
+        },
+        "definition": "A transactional record capturing a customer's request to purchase one or more products, with order-level dates, status and shipping/payment context.",
+        "source_tables": [
+          "orders"
+        ],
+        "subconcept_of": null,
+        "key_attributes": [
+          "Order Identifier"
+        ],
+        "party_model_category": null,
+        "is_named_specialization": false
+      },
+      {
+        "name": "Order Line",
+        "domain": "Retail",
+        "evidence": {
+          "detail": "Declared PK order_line_id on source table order_lines; associates Order (order_lines.order_id → orders.order_id, confidence 0.8) and Product (order_lines.product_id → products.product_id, confidence 0.77); carries its own attributes (quantity, unit_price, discount_pct, tax_pct, line_total) so modeled as a detail/associative concept rather than a pure M:N placeholder.",
+          "technique": "structural_grouping"
+        },
+        "definition": "A detail/line item within an Order representing a specific product, quantity, pricing and line-level charges; exists only in the context of an Order but has its own identity and attributes.",
+        "source_tables": [
+          "order_lines"
+        ],
+        "subconcept_of": null,
+        "key_attributes": [
+          "Order Line Identifier"
+        ],
+        "party_model_category": null,
+        "is_named_specialization": false
+      },
+      {
+        "name": "Payment",
+        "domain": "Retail",
+        "evidence": {
+          "detail": "Declared PK payment_id on source table payments; references orders.order_id and customers.customer_id (relationships with confidence 0.77); carries payment-specific attributes (amount, payment_method, transaction_ref, gateway_name).",
+          "technique": "structural_grouping"
+        },
+        "definition": "A transactional record of funds received (or attempted) for an Order, capturing amount, method, status and gateway details.",
+        "source_tables": [
+          "payments"
+        ],
+        "subconcept_of": null,
+        "key_attributes": [
+          "Payment Identifier"
+        ],
+        "party_model_category": null,
+        "is_named_specialization": false
+      }
+    ],
+    "party_model": {
+      "source": "inquiry",
+      "enabled": false,
+      "instruction": "Keep separate entities"
+    },
+    "name_mapping": [],
+    "relationships": [
+      {
+        "verb": "is placed by",
+        "source": "Order",
+        "target": "Customer",
+        "evidence": {
+          "detail": "Derived from source orders.customer_id → customers.customer_id (source analysis evidence: value_overlap=1, orphan_rate=0, parent PK present, confidence=0.77). Null rate 0% in sample → treated as mandatory in this draft.",
+          "technique": "inferred_fk"
+        },
+        "cardinality": "N:1",
+        "description": "Each Order is associated with one Customer; a Customer may place many Orders.",
+        "optionality": "Mandatory"
+      },
+      {
+        "verb": "is part of",
+        "source": "Order Line",
+        "target": "Order",
+        "evidence": {
+          "detail": "Derived from source order_lines.order_id → orders.order_id (value_overlap=1, orphan_rate=0, parent PK present, confidence=0.8). Null rate 0% in sample → treated as mandatory in this draft.",
+          "technique": "inferred_fk"
+        },
+        "cardinality": "N:1",
+        "description": "Each Order Line belongs to a single Order; an Order contains one or more Order Lines.",
+        "optionality": "Mandatory"
+      },
+      {
+        "verb": "references",
+        "source": "Order Line",
+        "target": "Product",
+        "evidence": {
+          "detail": "Derived from source order_lines.product_id → products.product_id (value_overlap=1, orphan_rate=0, parent PK present, confidence=0.77). Null rate 0% in sample → treated as mandatory in this draft.",
+          "technique": "inferred_fk"
+        },
+        "cardinality": "N:1",
+        "description": "Each Order Line refers to a single Product; a Product may appear on many Order Lines.",
+        "optionality": "Mandatory"
+      },
+      {
+        "verb": "is for",
+        "source": "Payment",
+        "target": "Order",
+        "evidence": {
+          "detail": "Derived from source payments.order_id → orders.order_id (value_overlap=1, orphan_rate=0, parent PK present, confidence=0.77). Null rate 0% in sample → treated as mandatory in this draft.",
+          "technique": "inferred_fk"
+        },
+        "cardinality": "N:1",
+        "description": "Each Payment is recorded against a single Order; an Order may have one or more Payments.",
+        "optionality": "Mandatory"
+      },
+      {
+        "verb": "is made by",
+        "source": "Payment",
+        "target": "Customer",
+        "evidence": {
+          "detail": "Derived from source payments.customer_id → customers.customer_id (value_overlap=1, orphan_rate=0, parent PK present, confidence=0.77). Null rate 0% in sample → treated as mandatory in this draft.",
+          "technique": "inferred_fk"
+        },
+        "cardinality": "N:1",
+        "description": "Each Payment is made by a single Customer; a Customer may make many Payments.",
+        "optionality": "Mandatory"
+      }
+    ],
+    "subject_areas": [
+      "Retail"
+    ],
+    "modeling_style": "3NF",
+    "reconciliation": {
+      "merges": [],
+      "conflicts": []
+    },
+    "party_model_decisions": [],
+    "key_reconciliation_review": [],
+    "embedded_concept_additions": [],
+    "relationship_evidence_review": [],
+    "subconcept_grain_corrections": [],
+    "relationship_evidence_corrections": []
+  }
+}
